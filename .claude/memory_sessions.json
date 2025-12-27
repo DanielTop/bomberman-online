@@ -1,0 +1,16 @@
+{
+  "sessions": {
+    "7cbefc4e-f10e-4a75-b128-fd810faa809e": {
+      "count": 9,
+      "started": "2025-12-26T00:56:48",
+      "last_checkpoint": 0,
+      "last_activity": "2025-12-27T21:37:58"
+    },
+    "9d9e0015-1ea3-419d-9bf0-c55182407f95": {
+      "count": 2,
+      "started": "2025-12-27T21:35:45",
+      "last_checkpoint": 0,
+      "last_activity": "2025-12-27T21:37:43"
+    }
+  }
+}

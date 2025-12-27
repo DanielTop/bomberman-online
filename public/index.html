@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>BOMBERMAN - 2 Players</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Russo+One&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Russo One', sans-serif;
+            color: white;
+            overflow: hidden;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            padding: 12px 20px;
+            background: rgba(0,0,0,0.5);
+            width: 100%;
+            justify-content: center;
+            border-bottom: 3px solid #e94560;
+        }
+
+        h1 {
+            font-size: 2em;
+            color: #e94560;
+            text-shadow: 0 0 20px #e94560, 0 2px 0 #000;
+            letter-spacing: 4px;
+        }
+
+        .scores {
+            display: flex;
+            gap: 20px;
+            font-size: 1.1em;
+        }
+
+        .score {
+            padding: 8px 20px;
+            border-radius: 25px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .p1-score {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
+        }
+
+        .p2-score {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+        }
+
+        #status {
+            font-size: 0.9em;
+            color: #f39c12;
+            padding: 8px;
+            text-shadow: 0 0 10px #f39c12;
+        }
+
+        .game-container {
+            position: relative;
+            margin: 10px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(233, 69, 96, 0.3);
+        }
+
+        #gameCanvas {
+            display: block;
+            background: #2d2d2d;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.85);
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        .overlay.show { opacity: 1; }
+
+        .overlay h2 {
+            font-size: 3em;
+            margin-bottom: 15px;
+            text-shadow: 0 0 30px currentColor;
+        }
+
+        .overlay.p1-win h2 { color: #3498db; }
+        .overlay.p2-win h2 { color: #e74c3c; }
+        .overlay.draw h2 { color: #f39c12; }
+
+        .overlay p {
+            font-size: 1.2em;
+            color: #888;
+        }
+
+        .powerup-popup {
+            position: absolute;
+            font-size: 1.5em;
+            pointer-events: none;
+            animation: floatUp 1s ease-out forwards;
+        }
+
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-50px) scale(1.5); }
+        }
+
+        .controls {
+            display: flex;
+            gap: 60px;
+            margin-top: 15px;
+            font-size: 0.75em;
+            color: #888;
+        }
+
+        .control-group {
+            text-align: center;
+            padding: 15px 25px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            border: 2px solid #333;
+        }
+
+        .control-group h3 {
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .control-group.p1 h3 { color: #3498db; }
+        .control-group.p2 h3 { color: #e74c3c; }
+
+        .keys { line-height: 1.8; }
+
+        .key {
+            display: inline-block;
+            background: #333;
+            border: 2px solid #555;
+            border-radius: 6px;
+            padding: 4px 10px;
+            margin: 2px;
+            min-width: 35px;
+            text-align: center;
+        }
+
+        .mobile-controls {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            left: 0; right: 0;
+            justify-content: space-between;
+            padding: 0 20px;
+            pointer-events: none;
+        }
+
+        .mobile-controls > * { pointer-events: auto; }
+
+        @media (max-width: 800px), (pointer: coarse) {
+            .controls { display: none; }
+            .mobile-controls { display: flex; }
+            .header { flex-wrap: wrap; gap: 10px; }
+            h1 { font-size: 1.5em; }
+        }
+
+        .dpad {
+            display: grid;
+            grid-template-columns: repeat(3, 55px);
+            grid-template-rows: repeat(3, 55px);
+            gap: 5px;
+        }
+
+        .dpad-btn {
+            background: rgba(255,255,255,0.15);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 12px;
+            font-size: 1.8em;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .dpad-btn:active {
+            background: rgba(255,255,255,0.4);
+            transform: scale(0.95);
+        }
+
+        .bomb-btn {
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #e94560, #c0392b);
+            border: 5px solid #ff6b6b;
+            font-size: 2.5em;
+            color: white;
+            box-shadow: 0 8px 25px rgba(233, 69, 96, 0.5);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .bomb-btn:active {
+            transform: scale(0.9);
+            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.5);
+        }
+
+        .share-link {
+            margin-top: 12px;
+            font-size: 0.7em;
+            color: #555;
+        }
+
+        .share-link a { color: #e94560; }
+
+        .player-stats {
+            position: absolute;
+            bottom: 10px;
+            font-size: 0.8em;
+            padding: 5px 15px;
+            background: rgba(0,0,0,0.7);
+            border-radius: 20px;
+        }
+
+        .player-stats.p1 { left: 10px; border: 2px solid #3498db; }
+        .player-stats.p2 { right: 10px; border: 2px solid #e74c3c; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="scores">
+            <div class="score p1-score">
+                <span>P1</span>
+                <span id="p1-score">0</span>
+            </div>
+        </div>
+        <h1>BOMBERMAN</h1>
+        <div class="scores">
+            <div class="score p2-score">
+                <span id="p2-score">0</span>
+                <span>P2</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="status">Connecting...</div>
+
+    <div class="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div class="overlay" id="overlay">
+            <h2 id="overlay-title">PLAYER 1 WINS!</h2>
+            <p id="overlay-sub">Next round starting...</p>
+        </div>
+        <div class="player-stats p1">💣×<span id="p1-bombs">1</span> 🔥×<span id="p1-fire">2</span></div>
+        <div class="player-stats p2">💣×<span id="p2-bombs">1</span> 🔥×<span id="p2-fire">2</span></div>
+    </div>
+
+    <div class="controls">
+        <div class="control-group p1">
+            <h3>PLAYER 1 (Blue)</h3>
+            <div class="keys">
+                <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> Move<br>
+                <span class="key">SPACE</span> Bomb
+            </div>
+        </div>
+        <div class="control-group p2">
+            <h3>PLAYER 2 (Red)</h3>
+            <div class="keys">
+                <span class="key">↑</span><span class="key">←</span><span class="key">↓</span><span class="key">→</span> Move<br>
+                <span class="key">ENTER</span> Bomb
+            </div>
+        </div>
+    </div>
+
+    <div class="mobile-controls">
+        <div class="dpad">
+            <div></div>
+            <div class="dpad-btn" data-dir="up">▲</div>
+            <div></div>
+            <div class="dpad-btn" data-dir="left">◀</div>
+            <div></div>
+            <div class="dpad-btn" data-dir="right">▶</div>
+            <div></div>
+            <div class="dpad-btn" data-dir="down">▼</div>
+            <div></div>
+        </div>
+        <button class="bomb-btn" id="bomb-btn">💣</button>
+    </div>
+
+    <div class="share-link">
+        Share: <a href="" id="shareLink"></a>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const socket = io();
+
+        let myId = null;
+        let myNum = 0;
+        let TILE = 48;
+        let COLS = 15;
+        let ROWS = 13;
+        let state = { grid: [], players: [], bombs: [], explosions: [] };
+        let animFrame = 0;
+
+        // Share link
+        document.getElementById('shareLink').href = window.location.href;
+        document.getElementById('shareLink').textContent = window.location.href;
+
+        // Input
+        const input = { up: false, down: false, left: false, right: false, bomb: false };
+
+        socket.on('init', (data) => {
+            myId = data.id;
+            myNum = data.num;
+            TILE = data.size.tile;
+            COLS = data.size.cols;
+            ROWS = data.size.rows;
+            canvas.width = COLS * TILE;
+            canvas.height = ROWS * TILE;
+            document.getElementById('status').textContent =
+                `You are Player ${myNum} (${myNum === 1 ? 'BLUE' : 'RED'}). Waiting for opponent...`;
+        });
+
+        socket.on('spectator', () => {
+            document.getElementById('status').textContent = 'Game full - Spectating';
+        });
+
+        socket.on('gameStart', () => {
+            document.getElementById('status').textContent = 'FIGHT!';
+            document.getElementById('overlay').classList.remove('show', 'p1-win', 'p2-win', 'draw');
+        });
+
+        socket.on('state', (s) => {
+            state = s;
+            updateStats();
+        });
+
+        socket.on('scores', (s) => {
+            document.getElementById('p1-score').textContent = s.p1;
+            document.getElementById('p2-score').textContent = s.p2;
+        });
+
+        socket.on('roundEnd', (data) => {
+            const overlay = document.getElementById('overlay');
+            const title = document.getElementById('overlay-title');
+
+            overlay.classList.remove('p1-win', 'p2-win', 'draw');
+
+            if (data.winner === 1) {
+                overlay.classList.add('show', 'p1-win');
+                title.textContent = 'PLAYER 1 WINS!';
+            } else if (data.winner === 2) {
+                overlay.classList.add('show', 'p2-win');
+                title.textContent = 'PLAYER 2 WINS!';
+            } else {
+                overlay.classList.add('show', 'draw');
+                title.textContent = 'DRAW!';
+            }
+
+            document.getElementById('p1-score').textContent = data.scores.p1;
+            document.getElementById('p2-score').textContent = data.scores.p2;
+        });
+
+        socket.on('powerup', (data) => {
+            showPowerupPopup(data.type, data.player);
+        });
+
+        socket.on('playerDied', (data) => {
+            // Could add death animation
+        });
+
+        function updateStats() {
+            const p1 = state.players.find(p => p.num === 1);
+            const p2 = state.players.find(p => p.num === 2);
+            if (p1) {
+                document.getElementById('p1-bombs').textContent = p1.maxBombs;
+                document.getElementById('p1-fire').textContent = p1.fireRadius;
+            }
+            if (p2) {
+                document.getElementById('p2-bombs').textContent = p2.maxBombs;
+                document.getElementById('p2-fire').textContent = p2.fireRadius;
+            }
+        }
+
+        function showPowerupPopup(type, player) {
+            const icons = { bomb: '💣+', fire: '🔥+', speed: '👟+' };
+            const popup = document.createElement('div');
+            popup.className = 'powerup-popup';
+            popup.textContent = icons[type] || '?';
+            popup.style.left = '50%';
+            popup.style.top = '50%';
+            popup.style.color = player === 1 ? '#3498db' : '#e74c3c';
+            document.querySelector('.game-container').appendChild(popup);
+            setTimeout(() => popup.remove(), 1000);
+        }
+
+        // Keyboard
+        document.addEventListener('keydown', (e) => {
+            handleKey(e.code, true);
+            if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+                e.preventDefault();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            handleKey(e.code, false);
+        });
+
+        function handleKey(code, pressed) {
+            if (code === 'KeyW' || code === 'ArrowUp') input.up = pressed;
+            if (code === 'KeyS' || code === 'ArrowDown') input.down = pressed;
+            if (code === 'KeyA' || code === 'ArrowLeft') input.left = pressed;
+            if (code === 'KeyD' || code === 'ArrowRight') input.right = pressed;
+            if (code === 'Space' || code === 'Enter') input.bomb = pressed;
+
+            socket.emit('input', input);
+        }
+
+        // Mobile
+        document.querySelectorAll('.dpad-btn').forEach(btn => {
+            const handler = (pressed) => (e) => {
+                e.preventDefault();
+                input[btn.dataset.dir] = pressed;
+                socket.emit('input', input);
+            };
+            btn.addEventListener('touchstart', handler(true));
+            btn.addEventListener('touchend', handler(false));
+        });
+
+        const bombBtn = document.getElementById('bomb-btn');
+        bombBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            input.bomb = true;
+            socket.emit('input', input);
+        });
+        bombBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            input.bomb = false;
+            socket.emit('input', input);
+        });
+
+        // Render
+        function draw() {
+            animFrame++;
+            ctx.fillStyle = '#1a472a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid
+            const grid = state.grid || [];
+            for (let y = 0; y < ROWS; y++) {
+                for (let x = 0; x < COLS; x++) {
+                    const cell = grid[y]?.[x] || 0;
+                    const px = x * TILE;
+                    const py = y * TILE;
+
+                    // Ground pattern
+                    ctx.fillStyle = (x + y) % 2 === 0 ? '#2d5a3d' : '#1a472a';
+                    ctx.fillRect(px, py, TILE, TILE);
+
+                    if (cell === 1) { // Wall
+                        drawWall(px, py);
+                    } else if (cell === 2) { // Brick
+                        drawBrick(px, py);
+                    } else if (cell === 3) { // Powerup bomb
+                        drawPowerup(px, py, '💣', '#f39c12');
+                    } else if (cell === 4) { // Powerup fire
+                        drawPowerup(px, py, '🔥', '#e74c3c');
+                    } else if (cell === 5) { // Powerup speed
+                        drawPowerup(px, py, '👟', '#3498db');
+                    }
+                }
+            }
+
+            // Draw explosions
+            (state.explosions || []).forEach(e => {
+                drawExplosion(e.x * TILE, e.y * TILE, e.isCenter, e.dir, e.isEnd);
+            });
+
+            // Draw bombs
+            const now = Date.now();
+            (state.bombs || []).forEach(b => {
+                drawBomb(b.x * TILE, b.y * TILE, b.planted, b.timer, now);
+            });
+
+            // Draw players
+            (state.players || []).forEach(p => {
+                if (p.alive) {
+                    drawPlayer(p.x * TILE, p.y * TILE, p.num, p.dir, p.moving);
+                }
+            });
+
+            requestAnimationFrame(draw);
+        }
+
+        function drawWall(x, y) {
+            // Steel wall
+            const gradient = ctx.createLinearGradient(x, y, x + TILE, y + TILE);
+            gradient.addColorStop(0, '#7f8c8d');
+            gradient.addColorStop(0.5, '#95a5a6');
+            gradient.addColorStop(1, '#7f8c8d');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x + 2, y + 2, TILE - 4, TILE - 4);
+
+            // Rivets
+            ctx.fillStyle = '#5d6d7e';
+            ctx.beginPath();
+            ctx.arc(x + 8, y + 8, 3, 0, Math.PI * 2);
+            ctx.arc(x + TILE - 8, y + 8, 3, 0, Math.PI * 2);
+            ctx.arc(x + 8, y + TILE - 8, 3, 0, Math.PI * 2);
+            ctx.arc(x + TILE - 8, y + TILE - 8, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawBrick(x, y) {
+            ctx.fillStyle = '#c0392b';
+            ctx.fillRect(x + 2, y + 2, TILE - 4, TILE - 4);
+
+            // Brick pattern
+            ctx.strokeStyle = '#922b21';
+            ctx.lineWidth = 2;
+
+            ctx.beginPath();
+            ctx.moveTo(x + 2, y + TILE/3);
+            ctx.lineTo(x + TILE - 2, y + TILE/3);
+            ctx.moveTo(x + 2, y + TILE*2/3);
+            ctx.lineTo(x + TILE - 2, y + TILE*2/3);
+            ctx.moveTo(x + TILE/2, y + 2);
+            ctx.lineTo(x + TILE/2, y + TILE/3);
+            ctx.moveTo(x + TILE/4, y + TILE/3);
+            ctx.lineTo(x + TILE/4, y + TILE*2/3);
+            ctx.moveTo(x + TILE*3/4, y + TILE/3);
+            ctx.lineTo(x + TILE*3/4, y + TILE*2/3);
+            ctx.moveTo(x + TILE/2, y + TILE*2/3);
+            ctx.lineTo(x + TILE/2, y + TILE - 2);
+            ctx.stroke();
+        }
+
+        function drawPowerup(x, y, icon, color) {
+            // Glowing background
+            const pulse = Math.sin(animFrame * 0.1) * 0.3 + 0.7;
+            ctx.fillStyle = color;
+            ctx.globalAlpha = 0.3 * pulse;
+            ctx.beginPath();
+            ctx.arc(x + TILE/2, y + TILE/2, TILE/2 - 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+
+            // Icon
+            ctx.font = `${TILE * 0.6}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(icon, x + TILE/2, y + TILE/2);
+        }
+
+        function drawBomb(x, y, planted, timer, now) {
+            const timeLeft = timer - now;
+            const pulse = Math.sin((now - planted) * 0.02) * 0.15 + 0.85;
+            const isFlashing = timeLeft < 1000 && Math.floor(timeLeft / 100) % 2 === 0;
+
+            // Bomb body
+            ctx.fillStyle = isFlashing ? '#e74c3c' : '#2c3e50';
+            ctx.beginPath();
+            ctx.arc(x + TILE/2, y + TILE/2 + 4, TILE/3 * pulse, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Fuse
+            ctx.strokeStyle = '#f39c12';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(x + TILE/2, y + TILE/4);
+            ctx.quadraticCurveTo(x + TILE/2 + 10, y + TILE/6, x + TILE/2 + 5, y + 8);
+            ctx.stroke();
+
+            // Spark
+            if (timeLeft > 0) {
+                ctx.fillStyle = '#f1c40f';
+                ctx.beginPath();
+                ctx.arc(x + TILE/2 + 5, y + 8, 4 + Math.sin(now * 0.05) * 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Highlight
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            ctx.beginPath();
+            ctx.arc(x + TILE/2 - 5, y + TILE/2, 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawExplosion(x, y, isCenter, dir, isEnd) {
+            const gradient = ctx.createRadialGradient(
+                x + TILE/2, y + TILE/2, 0,
+                x + TILE/2, y + TILE/2, TILE/2
+            );
+            gradient.addColorStop(0, '#f1c40f');
+            gradient.addColorStop(0.5, '#e74c3c');
+            gradient.addColorStop(1, 'rgba(231, 76, 60, 0)');
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x, y, TILE, TILE);
+
+            // Core
+            ctx.fillStyle = '#fff';
+            ctx.globalAlpha = 0.8;
+            ctx.beginPath();
+            ctx.arc(x + TILE/2, y + TILE/2, TILE/4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+
+        function drawPlayer(x, y, num, dir, moving) {
+            const color = num === 1 ? '#3498db' : '#e74c3c';
+            const darkColor = num === 1 ? '#2980b9' : '#c0392b';
+
+            // Shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.beginPath();
+            ctx.ellipse(x + TILE/2, y + TILE - 6, TILE/3, TILE/6, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Body bounce
+            const bounce = moving ? Math.sin(animFrame * 0.3) * 3 : 0;
+
+            // Body
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x + TILE/2, y + TILE/2 - 4 + bounce, TILE/3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Face direction indicator
+            const dirOffsets = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+            const [dx, dy] = dirOffsets[dir] || [0, 1];
+
+            // Eyes
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(x + TILE/2 - 6 + dx * 3, y + TILE/2 - 8 + dy * 3 + bounce, 5, 0, Math.PI * 2);
+            ctx.arc(x + TILE/2 + 6 + dx * 3, y + TILE/2 - 8 + dy * 3 + bounce, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Pupils
+            ctx.fillStyle = '#2c3e50';
+            ctx.beginPath();
+            ctx.arc(x + TILE/2 - 6 + dx * 5, y + TILE/2 - 8 + dy * 5 + bounce, 2, 0, Math.PI * 2);
+            ctx.arc(x + TILE/2 + 6 + dx * 5, y + TILE/2 - 8 + dy * 5 + bounce, 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Helmet/head top
+            ctx.fillStyle = darkColor;
+            ctx.beginPath();
+            ctx.arc(x + TILE/2, y + TILE/2 - 12 + bounce, TILE/4, Math.PI, 0);
+            ctx.fill();
+
+            // Player number
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(num, x + TILE/2, y + TILE/2 + 4 + bounce);
+        }
+
+        draw();
+    </script>
+</body>
+</html>
