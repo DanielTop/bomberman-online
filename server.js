@@ -427,7 +427,7 @@ function broadcast() {
     });
 }
 
-const PORT = 3456;
-server.listen(PORT, () => {
+const PORT = process.env.PORT || 3456;
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`Bomberman server running on port ${PORT}`);
 });
